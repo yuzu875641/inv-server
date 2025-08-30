@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 
+// Invidiousインスタンスのリスト
 const invidiousInstances = [
     "https://invidious.nikkosphere.com",
     "https://iv.melmac.space",
@@ -48,14 +49,6 @@ const invidiousInstances = [
     "https://invidious.private.coffee"
 ];
 
-// Invidiousインスタンスをランダムにシャッフルする関数
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-}
-
 app.get('/yt/:id', async (req, res) => {
     const videoId = req.params.id;
 
@@ -63,43 +56,39 @@ app.get('/yt/:id', async (req, res) => {
         return res.status(400).json({ error: 'YouTube video ID is required' });
     }
 
-    // インスタンスリストをシャッフル
-    shuffleArray(invidiousInstances);
-
-    let success = false;
-    let finalVideoData = null;
-
-    // リスト内の各インスタンスを試行
-    for (const instance of invidiousInstances) {
-        try {
-            const apiUrl = `${instance}/api/v1/videos/${videoId}`;
-            const response = await axios.get(apiUrl, { timeout: 5000 }); // タイムアウトを設定
-            const videoData = response.data;
-            
-            if (videoData && videoData.formats) {
-                const videoFormat = videoData.formats.find(format => format.container === 'mp4' && format.qualityLabel);
-                
-                if (videoFormat) {
-                    finalVideoData = {
-                        streamUrl: `${instance}${videoFormat.url}`,
-                        videoTitle: videoData.title,
-                        sssl: `${instance}${videoFormat.url}`
-                    };
-                    success = true;
-                    break; // 成功したのでループを抜ける
+    // すべてのインスタンスに対して同時にリクエストを作成
+    const promises = invidiousInstances.map(instance => {
+        const apiUrl = `${instance}/api/v1/videos/${videoId}`;
+        return axios.get(apiUrl, { timeout: 5000 })
+            .then(response => {
+                const videoData = response.data;
+                // 有効なデータ形式か確認
+                if (videoData && videoData.formats) {
+                    const videoFormat = videoData.formats.find(format => format.container === 'mp4' && format.qualityLabel);
+                    if (videoFormat) {
+                        return {
+                            streamUrl: `${instance}${videoFormat.url}`,
+                            videoTitle: videoData.title,
+                            sssl: `${instance}${videoFormat.url}`
+                        };
+                    }
                 }
-            }
-        } catch (error) {
-            console.error(`Error fetching video info from ${instance}:`, error.message);
-            // エラーが発生しても、次のインスタンスを試す
-        }
-    }
+                // 有効な形式が見つからない場合は失敗と見なす
+                return Promise.reject(`No valid format from instance: ${instance}`);
+            })
+            .catch(error => {
+                console.error(`Request to ${instance} failed:`, error.message);
+                return Promise.reject(`Request to ${instance} failed`);
+            });
+    });
 
-    if (success) {
-        res.json(finalVideoData);
-    } else {
-        // すべてのインスタンスが失敗した場合
-        res.status(500).json({ error: 'Failed to fetch video information from all instances' });
+    try {
+        // 最初に成功したプロミスを待機
+        const fastestResponse = await Promise.race(promises);
+        res.json(fastestResponse);
+    } catch (error) {
+        // すべてのリクエストが失敗した場合
+        res.status(500).json({ error: 'Failed to fetch video information from any instance' });
     }
 });
 

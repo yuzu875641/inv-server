@@ -66,6 +66,41 @@ async function getVideoInfo(videoId) {
     return null;
 }
 
+app.get('/live/:id', async (req, res) => {
+    const videoId = req.params.id;
+    if (!videoId) {
+        return res.status(400).json({ error: "Video ID is required." });
+    }
+
+    try {
+        const videoInfo = await getVideoInfo(videoId);
+        if (videoInfo && videoInfo.liveNow) {
+            const liveStreamUrls = {};
+            if (videoInfo.hlsUrl) {
+                liveStreamUrls.hlsUrl = videoInfo.hlsUrl;
+            }
+            if (videoInfo.dashUrl) {
+                liveStreamUrls.dashUrl = videoInfo.dashUrl;
+            }
+            if (videoInfo.formatStreams && videoInfo.formatStreams.length > 0) {
+                const liveRegularUrl = videoInfo.formatStreams.find(format => format.url && format.container === 'mp4' && format.audioBitrate > 0);
+                if (liveRegularUrl) {
+                    liveStreamUrls.streamUrl = liveRegularUrl.url;
+                }
+            }
+            return res.json({ 
+                type: "live",
+                urls: liveStreamUrls,
+                title: videoInfo.title,
+                description: videoInfo.description
+            });
+        } else {
+            return res.status(500).json({ error: "No live stream URL available or could not find a working instance." });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: error.toString() });
+    }
+});
 
 app.get('/video/:id', async (req, res) => {
     const videoId = req.params.id;

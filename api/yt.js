@@ -9,7 +9,7 @@ app.get('/yt/:id', async (req, res) => {
         return res.status(400).json({ error: 'YouTube video ID is required' });
     }
 
-    // 手動で指定されたInvidiousインスタンスのリスト
+    // List of Invidious instances to be tried sequentially
     const invidiousInstances = [
         'https://lekker.gay',
         'https://nyc1.iv.ggtyler.dev',
@@ -26,39 +26,33 @@ app.get('/yt/:id', async (req, res) => {
         return res.status(503).json({ error: 'No Invidious instances configured' });
     }
 
-    try {
-        // 指定されたインスタンスに対して同時にリクエストを送信する
-        const promises = invidiousInstances.map(instance => {
+    for (const instance of invidiousInstances) {
+        try {
             const apiUrl = `${instance}/api/v1/videos/${videoId}`;
-            return axios.get(apiUrl, { timeout: 5000 })
-                .then(response => {
-                    const videoData = response.data;
-                    if (videoData && videoData.formats) {
-                        const videoFormat = videoData.formats.find(format => format.container === 'mp4' && format.qualityLabel);
-                        if (videoFormat) {
-                            return {
-                                streamUrl: `${instance}${videoFormat.url}`,
-                                videoTitle: videoData.title,
-                                sssl: `${instance}${videoFormat.url}`
-                            };
-                        }
-                    }
-                    return Promise.reject(`No valid format from instance: ${instance}`);
-                })
-                .catch(error => {
-                    console.error(`Request to ${instance} failed:`, error.message);
-                    return Promise.reject(`Request to ${instance} failed`);
-                });
-        });
+            console.log(`Trying instance: ${instance}`); // Log which instance is being tried
 
-        // 最初に成功した応答を返す
-        const fastestResponse = await Promise.race(promises);
-        res.json(fastestResponse);
+            const response = await axios.get(apiUrl, { timeout: 5000 });
+            const videoData = response.data;
 
-    } catch (error) {
-        console.error('Error in fetching video info from all instances:', error.message);
-        res.status(500).json({ error: 'Failed to fetch video information from any specified instance' });
+            if (videoData && videoData.formats) {
+                const videoFormat = videoData.formats.find(format => format.container === 'mp4' && format.qualityLabel);
+                if (videoFormat) {
+                    // Success: Return the first valid response found
+                    return res.json({
+                        streamUrl: `${instance}${videoFormat.url}`,
+                        videoTitle: videoData.title,
+                        sssl: `${instance}${videoFormat.url}`
+                    });
+                }
+            }
+        } catch (error) {
+            // Log the error and continue to the next instance
+            console.error(`Request to ${instance} failed:`, error.message);
+        }
     }
+
+    // If the loop finishes without a successful response
+    res.status(500).json({ error: 'Failed to fetch video information from any specified instance' });
 });
 
 module.exports = app;

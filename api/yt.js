@@ -65,7 +65,7 @@ async function getInvidiousData(endpoint) {
     return null;
 }
 
-// 新しいプロキシルート
+// 新しいプロキシルート: 再帰的にHLSプレイリストを書き換える
 app.get('/proxy-hls', async (req, res) => {
     const hlsUrl = req.query.url;
     if (!hlsUrl) {
@@ -73,14 +73,46 @@ app.get('/proxy-hls', async (req, res) => {
     }
 
     try {
-        const stream = miniget(hlsUrl);
-        stream.pipe(res);
+        const response = await axios.get(hlsUrl, { responseType: 'text' });
+        let content = response.data;
 
+        const baseUrl = new URL(hlsUrl).origin;
+        const currentHost = `${req.protocol}://${req.get('host')}`;
+
+        const proxiedContent = content.split('\n').map(line => {
+            if (line.startsWith('http://') || line.startsWith('https://')) {
+                // 絶対URLをプロキシURLに書き換え
+                return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(line)}`;
+            } else if (line.endsWith('.m3u8') || line.endsWith('.ts')) {
+                // 相対URLを絶対URLに変換してからプロキシURLに書き換え
+                const absoluteUrl = `${baseUrl}/${line}`;
+                return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(absoluteUrl)}`;
+            }
+            return line;
+        }).join('\n');
+
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.send(proxiedContent);
+    } catch (err) {
+        res.status(500).send("Failed to proxy the HLS stream.");
+    }
+});
+
+// HLSセグメント（.tsファイル）をプロキシするルート
+app.get('/proxy-hls-segment', async (req, res) => {
+    const segmentUrl = req.query.url;
+    if (!segmentUrl) {
+        return res.status(400).send("URL parameter is required.");
+    }
+
+    try {
+        const stream = miniget(segmentUrl);
+        stream.pipe(res);
         stream.on('error', (err) => {
-            res.status(500).send("Failed to proxy the stream.");
+            res.status(500).send("Failed to proxy the segment.");
         });
     } catch (err) {
-        res.status(500).send("Failed to initiate proxy stream.");
+        res.status(500).send("Failed to initiate proxy for segment.");
     }
 });
 

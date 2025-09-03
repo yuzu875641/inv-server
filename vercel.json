@@ -6,6 +6,10 @@
       "dest": "/api/yt.js"
     },
     {
+      "src": "/video/(.*)",
+      "dest": "/api/yt.js"
+    },
+    {
       "src": "/live/(.*)",
       "dest": "/api/yt.js"
     }

@@ -2,7 +2,6 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 
-// エンドポイントごとに使用するInvidiousインスタンスを定義
 const invidiousInstances = {
     'videos': [
         'https://invidious.ducks.party',
@@ -12,7 +11,22 @@ const invidiousInstances = {
         'https://lekker.gay',
         'https://34.97.38.181',
         'https://iv.melmac.space',
-        'https://invidious.lunivers.trade'
+        'https://invidious.lunivers.trade',
+        'https://pol1.iv.ggtyler.dev',
+        'https://nyc1.iv.ggtyler.dev',
+        'https://invidious.jing.rocks',
+        'https://invidious.schenkel.eti.br',
+        'https://youtube.provacyplz.org',
+        'https://invidious.darkness.services',
+        'https://inv.vern.cc',
+        'https://invidious.vern.cc',
+        'https://yt.vern.cc',
+        'https://invidious.materialio.us',
+        'https://inv.tux.pizza',
+        'https://vid.puffyan.us',
+        'https://invidious.private.coffee',
+        'https://invidious.varis.social',
+        'https://youtube.mosesmang.com'
     ],
     'search': [
         'https://iv.melmac.space',
@@ -26,7 +40,21 @@ const invidiousInstances = {
         'https://34.97.38.181',
         'https://rust.oskamp.nl',
         'https://invidious.adminforge.de',
-        'https://pol1.iv.ggtyler.dev'
+        'https://pol1.iv.ggtyler.dev',
+        'https://nyc1.iv.ggtyler.dev',
+        'https://invidious.jing.rocks',
+        'https://invidious.schenkel.eti.br',
+        'https://youtube.provacyplz.org',
+        'https://invidious.darkness.services',
+        'https://inv.vern.cc',
+        'https://invidious.vern.cc',
+        'https://yt.vern.cc',
+        'https://invidious.materialio.us',
+        'https://inv.tux.pizza',
+        'https://vid.puffyan.us',
+        'https://invidious.private.coffee',
+        'https://invidious.varis.social',
+        'https://youtube.mosesmang.com'
     ],
     'channels': [
         'https://iv.melmac.space',
@@ -38,7 +66,22 @@ const invidiousInstances = {
         'https://invidious.ducks.party',
         'https://invidious.nikkosphere.com',
         'https://cal1.iv.ggtyler.dev',
-        'https://34.97.38.181'
+        'https://34.97.38.181',
+        'https://pol1.iv.ggtyler.dev',
+        'https://nyc1.iv.ggtyler.dev',
+        'https://invidious.jing.rocks',
+        'https://invidious.schenkel.eti.br',
+        'https://youtube.provacyplz.org',
+        'https://invidious.darkness.services',
+        'https://inv.vern.cc',
+        'https://invidious.vern.cc',
+        'https://yt.vern.cc',
+        'https://invidious.materialio.us',
+        'https://inv.tux.pizza',
+        'https://vid.puffyan.us',
+        'https://invidious.private.coffee',
+        'https://invidious.varis.social',
+        'https://youtube.mosesmang.com'
     ],
     'playlists': [
         'https://lekker.gay',
@@ -51,20 +94,45 @@ const invidiousInstances = {
         'https://iv.melmac.space',
         'https://cal1.iv.ggtyler.dev',
         'https://iv.ggtyler.dev',
-        'https://pol1.iv.ggtyler.dev'
+        'https://pol1.iv.ggtyler.dev',
+        'https://invidious.jing.rocks',
+        'https://invidious.schenkel.eti.br',
+        'https://youtube.provacyplz.org',
+        'https://invidious.darkness.services',
+        'https://inv.vern.cc',
+        'https://invidious.vern.cc',
+        'https://yt.vern.cc',
+        'https://invidious.materialio.us',
+        'https://inv.tux.pizza',
+        'https://vid.puffyan.us',
+        'https://invidious.private.coffee',
+        'https://invidious.varis.social'
     ],
     'comments': [
         'https://invidious.nietzospannend.nl',
         'https://pol1.iv.ggtyler.dev',
         'https://lekker.gay',
         'https://cal1.iv.ggtyler.dev',
-        'https://iv.ggtyler.dev'
+        'https://iv.ggtyler.dev',
+        'https://nyc1.iv.ggtyler.dev',
+        'https://invidious.jing.rocks',
+        'https://invidious.schenkel.eti.br',
+        'https://youtube.provacyplz.org',
+        'https://invidious.darkness.services',
+        'https://inv.vern.cc',
+        'https://invidious.vern.cc',
+        'https://yt.vern.cc',
+        'https://invidious.materialio.us',
+        'https://inv.tux.pizza',
+        'https://vid.puffyan.us',
+        'https://invidious.private.coffee',
+        'https://invidious.varis.social',
+        'https://iv.melmac.space',
+        'https://youtube.mosesmang.com'
     ]
 };
 
-// Invidious APIへのリクエストを処理する汎用関数
 async function proxyRequest(req, res, apiPath) {
-    // パスからエンドポイントタイプを抽出
     const endpointType = apiPath.split('/')[0];
     const instancesToUse = invidiousInstances[endpointType] || [];
 
@@ -92,7 +160,6 @@ async function proxyRequest(req, res, apiPath) {
     res.status(500).json({ error: `Failed to fetch data from any specified instance for ${apiPath}` });
 }
 
-// 全てのAPIリクエストを処理する単一のエンドポイント
 app.get('/api/v1/*', (req, res) => {
     const apiPath = req.params[0];
     proxyRequest(req, res, apiPath);

@@ -12,6 +12,18 @@
     {
       "src": "/live/(.*)",
       "dest": "/api/yt.js"
+    },
+    {
+      "src": "/proxy-hls",
+      "dest": "/api/yt.js"
+    },
+    {
+      "src": "/proxy-dash",
+      "dest": "/api/yt.js"
+    },
+    {
+      "src": "/proxy-stream",
+      "dest": "/api/yt.js"
     }
   ]
 }

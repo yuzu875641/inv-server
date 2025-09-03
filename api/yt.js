@@ -16,7 +16,7 @@ const invidiousInstances = [
 ];
 
 // Invidious APIへのリクエストを処理する汎用関数
-async function proxyRequest(req, res, path) {
+async function proxyRequest(req, res, apiPath) {
     if (invidiousInstances.length === 0) {
         return res.status(503).json({ error: 'No Invidious instances configured' });
     }
@@ -26,8 +26,9 @@ async function proxyRequest(req, res, path) {
     
     for (const instance of invidiousInstances) {
         try {
-            const apiUrl = `${instance}/api/v1/${path}?${queryParams}`;
-            console.log(`Trying instance for ${path}: ${instance}`);
+            // APIパスとクエリパラメータを組み合わせて完全なURLを作成
+            const apiUrl = `${instance}/api/v1/${apiPath}?${queryParams}`;
+            console.log(`Trying instance for ${apiPath}: ${instance}`);
 
             const response = await axios.get(apiUrl, { timeout: 5000 });
             
@@ -41,37 +42,14 @@ async function proxyRequest(req, res, path) {
     }
 
     // 全てのインスタンスで失敗した場合
-    res.status(500).json({ error: `Failed to fetch data from any specified instance for ${path}` });
+    res.status(500).json({ error: `Failed to fetch data from any specified instance for ${apiPath}` });
 }
 
-// 検索エンドポイント
-app.get('/api/v1/search', (req, res) => {
-    proxyRequest(req, res, 'search');
+// すべてのAPIリクエストを処理する単一のエンドポイント
+app.get('/api/v1/*', (req, res) => {
+    // URLの/api/v1/以降のパスをすべて取得
+    const apiPath = req.params[0];
+    proxyRequest(req, res, apiPath);
 });
-
-// チャンネルエンドポイント
-app.get('/api/v1/channels/:id', (req, res) => {
-    const channelId = req.params.id;
-    proxyRequest(req, res, `channels/${channelId}`);
-});
-
-// プレイリストエンドポイント
-app.get('/api/v1/playlists/:id', (req, res) => {
-    const playlistId = req.params.id;
-    proxyRequest(req, res, `playlists/${playlistId}`);
-});
-
-// コメントエンドポイント
-app.get('/api/v1/videos/:id/comments', (req, res) => {
-    const videoId = req.params.id;
-    proxyRequest(req, res, `videos/${videoId}/comments`);
-});
-
-// 動画情報エンドポイント（元々の機能）
-app.get('/api/v1/videos/:id', (req, res) => {
-    const videoId = req.params.id;
-    proxyRequest(req, res, `videos/${videoId}`);
-});
-
 
 module.exports = app;

@@ -4,6 +4,10 @@
     {
       "src": "/api/v1/(.*)",
       "dest": "/api/yt.js"
+    },
+    {
+      "src": "/live/(.*)",
+      "dest": "/api/yt.js"
     }
   ]
 }

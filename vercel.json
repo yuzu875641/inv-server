@@ -18,6 +18,10 @@
       "dest": "/api/yt.js"
     },
     {
+      "src": "/proxy-hls-segment",
+      "dest": "/api/yt.js"
+    },
+    {
       "src": "/proxy-dash",
       "dest": "/api/yt.js"
     },

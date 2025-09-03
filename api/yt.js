@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
+const miniget = require('miniget');
 
 const invidiousInstances = [
     'https://nyc1.iv.ggtyler.dev',
@@ -65,6 +66,7 @@ async function getVideoInfo(videoId) {
     return null;
 }
 
+
 app.get('/video/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {
@@ -74,26 +76,17 @@ app.get('/video/:id', async (req, res) => {
     try {
         const videoInfo = await getVideoInfo(videoId);
         if (videoInfo) {
-            if (videoInfo.liveNow && videoInfo.hlsUrl) {
-                return res.json({ 
-                    type: "live",
-                    url: videoInfo.hlsUrl,
-                    title: videoInfo.title,
-                    description: videoInfo.description
-                });
-            } else if (videoInfo.formatStreams && videoInfo.formatStreams.length > 0) {
-                const streamUrl = videoInfo.formatStreams[0].url; 
-                return res.json({ 
+            const streamUrls = {};
+            if (videoInfo.formatStreams && videoInfo.formatStreams.length > 0) {
+                streamUrls.formatStreams = videoInfo.formatStreams;
+            }
+            if (videoInfo.adaptiveFormats && videoInfo.adaptiveFormats.length > 0) {
+                streamUrls.adaptiveFormats = videoInfo.adaptiveFormats;
+            }
+            if (Object.keys(streamUrls).length > 0) {
+                return res.json({
                     type: "regular",
-                    url: streamUrl,
-                    title: videoInfo.title,
-                    description: videoInfo.description
-                });
-            } else if (videoInfo.adaptiveFormats && videoInfo.adaptiveFormats.length > 0) {
-                const streamUrl = videoInfo.adaptiveFormats[0].url;
-                return res.json({ 
-                    type: "regular",
-                    url: streamUrl,
+                    urls: streamUrls,
                     title: videoInfo.title,
                     description: videoInfo.description
                 });

@@ -2,7 +2,7 @@
   "version": 2,
   "routes": [
     {
-      "src": "/yt/(.*)",
+      "src": "/api/v1/(.*)",
       "dest": "/api/yt.js"
     }
   ]

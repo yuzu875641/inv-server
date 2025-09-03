@@ -1,7 +1,6 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
-const miniget = require('miniget');
 
 const invidiousInstances = [
     'https://nyc1.iv.ggtyler.dev',
@@ -32,17 +31,14 @@ const invidiousInstances = [
     'https://invidious.esmailelbob.xyz',
     'https://invidious.0011.lt',
     'https://invidious.ducks.party',
-    'https://invidious.ducks.party',
     'https://super8.absturztau.be',
     'https://34.97.38.181',
-    'https://invidious.lunivers.trade',
     'https://youtube.alt.tyil.nl',
     'https://rust.oskamp.nl',
     'https://inv.tux.pizza',
     'https://vid.puffyan.us',
     'https://invidious.nietzospannend.nl',
     'https://iv.ggtyler.dev',
-    'https://youtube.mosesmang.com',
     'https://siawaseok-wakame-server2.glitch.me',
     'https://invidious.darkness.services',
     'https://inv.vern.cc',
@@ -53,14 +49,14 @@ const invidiousInstances = [
     'https://invidious.0011.lt'
 ];
 
-async function getLiveHlsUrl(videoId) {
+async function getVideoInfo(videoId) {
     for (const instance of invidiousInstances) {
         try {
             const apiUrl = `${instance}/api/v1/videos/${videoId}`;
             const response = await axios.get(apiUrl, { timeout: 5000 });
             const videoInfo = response.data;
-            if (videoInfo && videoInfo.liveNow && videoInfo.hlsUrl) {
-                return videoInfo.hlsUrl;
+            if (videoInfo) {
+                return videoInfo;
             }
         } catch (error) {
             // エラーを無視して次のインスタンスを試行
@@ -69,18 +65,43 @@ async function getLiveHlsUrl(videoId) {
     return null;
 }
 
-app.get('/live/:id', async (req, res) => {
+app.get('/video/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {
         return res.status(400).json({ error: "Video ID is required." });
     }
 
     try {
-        const hlsUrl = await getLiveHlsUrl(videoId);
-        if (hlsUrl) {
-            return res.json({ hlsUrl: hlsUrl });
+        const videoInfo = await getVideoInfo(videoId);
+        if (videoInfo) {
+            if (videoInfo.liveNow && videoInfo.hlsUrl) {
+                return res.json({ 
+                    type: "live",
+                    url: videoInfo.hlsUrl,
+                    title: videoInfo.title,
+                    description: videoInfo.description
+                });
+            } else if (videoInfo.formatStreams && videoInfo.formatStreams.length > 0) {
+                const streamUrl = videoInfo.formatStreams[0].url; 
+                return res.json({ 
+                    type: "regular",
+                    url: streamUrl,
+                    title: videoInfo.title,
+                    description: videoInfo.description
+                });
+            } else if (videoInfo.adaptiveFormats && videoInfo.adaptiveFormats.length > 0) {
+                const streamUrl = videoInfo.adaptiveFormats[0].url;
+                return res.json({ 
+                    type: "regular",
+                    url: streamUrl,
+                    title: videoInfo.title,
+                    description: videoInfo.description
+                });
+            } else {
+                return res.status(500).json({ error: "No video stream URL available for this video." });
+            }
         } else {
-            return res.status(500).json({ error: "No live stream URL available or could not find a working instance." });
+            return res.status(500).json({ error: "Failed to fetch video information from any working instance." });
         }
     } catch (error) {
         return res.status(500).json({ error: error.toString() });

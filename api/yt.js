@@ -9,19 +9,26 @@ app.get('/yt/:id', async (req, res) => {
         return res.status(400).json({ error: 'YouTube video ID is required' });
     }
 
+    // 手動で指定されたInvidiousインスタンスのリスト
+    const invidiousInstances = [
+        'https://lekker.gay',
+        'https://nyc1.iv.ggtyler.dev',
+        'https://invidious.nikkosphere.com',
+        'https://invidious.rhyshl.live',
+        'https://invid-api.poketube.fun',
+        'https://inv.tux.pizza',
+        'https://pol1.iv.ggtyler.dev',
+        'https://yewtu.be',
+        'https://youtube.alt.tyil.nl'
+    ];
+
+    if (invidiousInstances.length === 0) {
+        return res.status(503).json({ error: 'No Invidious instances configured' });
+    }
+
     try {
-        // Step 1: 動作中のInvidiousインスタンスリストを動的に取得する
-        const instancesResponse = await axios.get('https://api.invidious.io/instances.json?sort_by=health,type');
-        const activeInstances = instancesResponse.data
-            .filter(instance => instance[1].stats.openRegistrations === false)
-            .map(instance => `https://${instance[0]}`);
-
-        if (activeInstances.length === 0) {
-            return res.status(503).json({ error: 'No active Invidious instances available' });
-        }
-
-        // Step 2: 取得したインスタンスに対して同時にリクエストを送信する
-        const promises = activeInstances.map(instance => {
+        // 指定されたインスタンスに対して同時にリクエストを送信する
+        const promises = invidiousInstances.map(instance => {
             const apiUrl = `${instance}/api/v1/videos/${videoId}`;
             return axios.get(apiUrl, { timeout: 5000 })
                 .then(response => {
@@ -44,13 +51,13 @@ app.get('/yt/:id', async (req, res) => {
                 });
         });
 
-        // Step 3: 最初に成功した応答を返す
+        // 最初に成功した応答を返す
         const fastestResponse = await Promise.race(promises);
         res.json(fastestResponse);
 
     } catch (error) {
-        console.error('Error in fetching instances or video info:', error.message);
-        res.status(500).json({ error: 'Failed to fetch video information from any instance' });
+        console.error('Error in fetching video info from all instances:', error.message);
+        res.status(500).json({ error: 'Failed to fetch video information from any specified instance' });
     }
 });
 

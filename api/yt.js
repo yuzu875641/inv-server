@@ -50,14 +50,13 @@ const invidiousInstances = [
     'https://invidious.0011.lt'
 ];
 
-async function getVideoInfo(videoId) {
+async function getInvidiousData(endpoint) {
     for (const instance of invidiousInstances) {
         try {
-            const apiUrl = `${instance}/api/v1/videos/${videoId}`;
+            const apiUrl = `${instance}/api/v1/${endpoint}`;
             const response = await axios.get(apiUrl, { timeout: 5000 });
-            const videoInfo = response.data;
-            if (videoInfo) {
-                return videoInfo;
+            if (response.data) {
+                return response.data;
             }
         } catch (error) {
             // エラーを無視して次のインスタンスを試行
@@ -66,6 +65,25 @@ async function getVideoInfo(videoId) {
     return null;
 }
 
+// 新しいプロキシルート
+app.get('/proxy-hls', async (req, res) => {
+    const hlsUrl = req.query.url;
+    if (!hlsUrl) {
+        return res.status(400).send("URL parameter is required.");
+    }
+
+    try {
+        const stream = miniget(hlsUrl);
+        stream.pipe(res);
+
+        stream.on('error', (err) => {
+            res.status(500).send("Failed to proxy the stream.");
+        });
+    } catch (err) {
+        res.status(500).send("Failed to initiate proxy stream.");
+    }
+});
+
 app.get('/live/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {
@@ -73,22 +91,35 @@ app.get('/live/:id', async (req, res) => {
     }
 
     try {
-        const videoInfo = await getVideoInfo(videoId);
+        const videoInfo = await getInvidiousData(`videos/${videoId}`);
         if (videoInfo && videoInfo.liveNow) {
             const liveStreamUrls = {};
             if (videoInfo.hlsUrl) {
-                liveStreamUrls.hlsUrl = videoInfo.hlsUrl;
+                const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-hls?url=${encodeURIComponent(videoInfo.hlsUrl)}`;
+                liveStreamUrls.hlsUrl = proxiedUrl;
             }
             if (videoInfo.dashUrl) {
-                liveStreamUrls.dashUrl = videoInfo.dashUrl;
+                const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-dash?url=${encodeURIComponent(videoInfo.dashUrl)}`;
+                liveStreamUrls.dashUrl = proxiedUrl;
+            }
+            if (videoInfo.adaptiveFormats && videoInfo.adaptiveFormats.length > 0) {
+                liveStreamUrls.adaptiveFormats = videoInfo.adaptiveFormats.map(format => {
+                    return {
+                        ...format,
+                        url: `${req.protocol}://${req.get('host')}/proxy-stream?url=${encodeURIComponent(format.url)}`
+                    };
+                });
             }
             if (videoInfo.formatStreams && videoInfo.formatStreams.length > 0) {
-                const liveRegularUrl = videoInfo.formatStreams.find(format => format.url && format.container === 'mp4' && format.audioBitrate > 0);
-                if (liveRegularUrl) {
-                    liveStreamUrls.streamUrl = liveRegularUrl.url;
-                }
+                liveStreamUrls.formatStreams = videoInfo.formatStreams.map(format => {
+                    return {
+                        ...format,
+                        url: `${req.protocol}://${req.get('host')}/proxy-stream?url=${encodeURIComponent(format.url)}`
+                    };
+                });
             }
-            return res.json({ 
+            
+            return res.json({
                 type: "live",
                 urls: liveStreamUrls,
                 title: videoInfo.title,
@@ -109,14 +140,24 @@ app.get('/video/:id', async (req, res) => {
     }
 
     try {
-        const videoInfo = await getVideoInfo(videoId);
+        const videoInfo = await getInvidiousData(`videos/${videoId}`);
         if (videoInfo) {
             const streamUrls = {};
             if (videoInfo.formatStreams && videoInfo.formatStreams.length > 0) {
-                streamUrls.formatStreams = videoInfo.formatStreams;
+                streamUrls.formatStreams = videoInfo.formatStreams.map(format => {
+                    return {
+                        ...format,
+                        url: `${req.protocol}://${req.get('host')}/proxy-stream?url=${encodeURIComponent(format.url)}`
+                    };
+                });
             }
             if (videoInfo.adaptiveFormats && videoInfo.adaptiveFormats.length > 0) {
-                streamUrls.adaptiveFormats = videoInfo.adaptiveFormats;
+                streamUrls.adaptiveFormats = videoInfo.adaptiveFormats.map(format => {
+                    return {
+                        ...format,
+                        url: `${req.protocol}://${req.get('host')}/proxy-stream?url=${encodeURIComponent(format.url)}`
+                    };
+                });
             }
             if (Object.keys(streamUrls).length > 0) {
                 return res.json({

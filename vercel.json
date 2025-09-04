@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "yt.js",
+      "src": "app/yt.js",
       "use": "@vercel/node"
     }
   ],

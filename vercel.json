@@ -9,43 +9,43 @@
   "routes": [
     {
       "src": "/api/v1/(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/live/highest-quality-stream/(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/live/(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/video/(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/proxy-stream(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/proxy-hls(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/proxy-hls-segment(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/proxy-hls-segments(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/proxy-dash(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     },
     {
       "src": "/proxy-dash-segment(.*)",
-      "dest": "/yt.js"
+      "dest": "/api/yt.js"
     }
   ]
 }

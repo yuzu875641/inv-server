@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invidious Live HLS Player</title>
+</head>
+<body>
+
+    <h1>Invidious Live Stream</h1>
+    <input type="text" id="videoIdInput" placeholder="Enter YouTube Video ID">
+    <button onclick="loadLiveStream()">Load Live Stream</button>
+    <br><br>
+    
+    <video id="videoPlayer" controls style="width: 100%; max-width: 800px;"></video>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
+
+    <script>
+        const invidiousInstance = 'https://nyc1.iv.ggtyler.dev';
+
+        async function loadLiveStream() {
+            const videoId = document.getElementById('videoIdInput').value;
+            const videoElement = document.getElementById('videoPlayer');
+
+            if (!videoId) {
+                alert('Please enter a valid video ID.');
+                return;
+            }
+
+            try {
+                // Invidious APIから動画情報を取得
+                const response = await axios.get(`${invidiousInstance}/api/v1/videos/${videoId}`);
+                const videoInfo = response.data;
+
+                if (videoInfo && videoInfo.liveNow && videoInfo.hlsUrl) {
+                    const hlsUrl = videoInfo.hlsUrl;
+
+                    if (Hls.isSupported()) {
+                        const hls = new Hls();
+                        hls.loadSource(hlsUrl);
+                        hls.attachMedia(videoElement);
+                        
+                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                            console.log('HLS manifest parsed successfully.');
+                            videoElement.play();
+                        });
+
+                        hls.on(Hls.Events.ERROR, function(event, data) {
+                            console.error('HLS.js error:', data);
+                            if (data.fatal) {
+                                switch (data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                        console.log('Fatal network error. Retrying.');
+                                        hls.recoverMediaError();
+                                        break;
+                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                        console.log('Fatal media error. Retrying.');
+                                        hls.recoverMediaError();
+                                        break;
+                                    default:
+                                        console.log('Hls.js fatal error. Destroying Hls instance.');
+                                        hls.destroy();
+                                        break;
+                                }
+                            }
+                        });
+                    } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                        // ネイティブHLS再生をサポートするSafariなど
+                        videoElement.src = hlsUrl;
+                        videoElement.play();
+                    }
+                } else {
+                    alert('This video is not a live stream or no HLS URL is available.');
+                }
+
+            } catch (error) {
+                console.error('Failed to fetch video information:', error);
+                alert('Failed to fetch video information. Possible CORS issue or invalid video ID.');
+            }
+        }
+    </script>
+</body>
+</html>

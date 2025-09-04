@@ -141,6 +141,36 @@ app.get('/proxy-hls-segment', async (req, res) => {
     }
 });
 
+// 新しいエンドポイント: HLSセグメントリストをプロキシする
+app.get('/proxy-hls-segments', async (req, res) => {
+    const segmentsUrl = req.query.url;
+    if (!segmentsUrl) {
+        return res.status(400).send("URL parameter is required.");
+    }
+
+    try {
+        const response = await axios.get(segmentsUrl, { responseType: 'text' });
+        const content = response.data;
+        const currentHost = `${req.protocol}://${req.get('host')}`;
+        const baseUrl = new URL(segmentsUrl).origin;
+
+        const proxiedContent = content.split('\n').map(line => {
+            if (line.endsWith('.ts')) {
+                const absoluteUrl = new URL(line, baseUrl).href;
+                return `${currentHost}/proxy-stream?url=${encodeURIComponent(absoluteUrl)}`;
+            }
+            return line;
+        }).join('\n');
+
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.send(proxiedContent);
+    } catch (err) {
+        console.error("Failed to proxy the HLS segments list:", err.message);
+        res.status(500).send("Failed to proxy the HLS segments list.");
+    }
+});
+
+
 app.get('/proxy-dash', async (req, res) => {
     const dashUrl = req.query.url;
     if (!dashUrl) {
@@ -184,7 +214,6 @@ app.get('/proxy-dash-segment', async (req, res) => {
     }
 });
 
-// 新しいエンドポイント: 最高画質のHLSストリームURLをJSONで返す
 app.get('/live/highest-quality-stream/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {
@@ -208,7 +237,6 @@ app.get('/live/highest-quality-stream/:id', async (req, res) => {
                 const hlsQualities = parseHlsPlaylist(hlsResponse.data, hlsUrl, currentHost);
 
                 if (hlsQualities.length > 0) {
-                    // 最高画質のストリームを帯域幅でソートして取得
                     const highestQuality = hlsQualities.reduce((prev, current) => {
                         return (parseInt(prev.bandwidth) > parseInt(current.bandwidth)) ? prev : current;
                     });

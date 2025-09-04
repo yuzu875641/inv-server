@@ -83,7 +83,7 @@ function parseHlsPlaylist(playlistContent, baseUrl, currentHost) {
             const streamUrl = lines[i + 1];
             if (streamUrl && streamUrl.trim() !== '' && !streamUrl.startsWith('#')) {
                 const absoluteUrl = new URL(streamUrl, baseUrl).href;
-                streamInfo.url = `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(absoluteUrl)}`;
+                streamInfo.url = `${currentHost}/proxy-hls?url=${encodeURIComponent(absoluteUrl)}`; // ここをm3u8に変換
                 qualities.push(streamInfo);
             }
         }
@@ -211,7 +211,7 @@ app.get('/proxy-dash-segment', async (req, res) => {
         });
     } catch (err) {
         console.error("Failed to initiate proxy for DASH segment:", err.message);
-        res.status(500).send("Failed to initiate proxy for DASH segment.");
+        res.status(500).send("Failed to initiate proxy for segment.");
     }
 });
 

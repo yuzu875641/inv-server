@@ -65,7 +65,7 @@ async function getInvidiousData(endpoint) {
     return null;
 }
 
-// ライブストリームのマスタープレイリストとセグメントを再帰的にプロキシする
+// 新しいプロキシルート: 再帰的にHLSプレイリストを書き換える
 app.get('/proxy-hls', async (req, res) => {
     const hlsUrl = req.query.url;
     if (!hlsUrl) {
@@ -76,17 +76,16 @@ app.get('/proxy-hls', async (req, res) => {
         const response = await axios.get(hlsUrl, { responseType: 'text' });
         let content = response.data;
 
-        const urlObj = new URL(hlsUrl);
-        const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+        const baseUrl = new URL(hlsUrl).origin;
         const currentHost = `${req.protocol}://${req.get('host')}`;
 
         const proxiedContent = content.split('\n').map(line => {
-            if (line.startsWith('http')) {
+            if (line.startsWith('http://') || line.startsWith('https://')) {
                 // 絶対URLをプロキシURLに書き換え
                 return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(line)}`;
             } else if (line.endsWith('.m3u8') || line.endsWith('.ts')) {
                 // 相対URLを絶対URLに変換してからプロキシURLに書き換え
-                const absoluteUrl = `${baseUrl}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/'))}/${line}`;
+                const absoluteUrl = `${baseUrl}/${line}`;
                 return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(absoluteUrl)}`;
             }
             return line;
@@ -117,42 +116,6 @@ app.get('/proxy-hls-segment', async (req, res) => {
     }
 });
 
-// DASHストリームをプロキシするルート
-app.get('/proxy-dash', async (req, res) => {
-    const dashUrl = req.query.url;
-    if (!dashUrl) {
-        return res.status(400).send("URL parameter is required.");
-    }
-
-    try {
-        const stream = miniget(dashUrl);
-        stream.pipe(res);
-        stream.on('error', (err) => {
-            res.status(500).send("Failed to proxy the DASH stream.");
-        });
-    } catch (err) {
-        res.status(500).send("Failed to initiate proxy for DASH.");
-    }
-});
-
-// 一般的な動画ストリームをプロキシするルート
-app.get('/proxy-stream', async (req, res) => {
-    const streamUrl = req.query.url;
-    if (!streamUrl) {
-        return res.status(400).send("URL parameter is required.");
-    }
-    
-    try {
-        const stream = miniget(streamUrl);
-        stream.pipe(res);
-        stream.on('error', (err) => {
-            res.status(500).send("Failed to proxy the stream.");
-        });
-    } catch (err) {
-        res.status(500).send("Failed to initiate proxy for stream.");
-    }
-});
-
 app.get('/live/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {
@@ -164,30 +127,8 @@ app.get('/live/:id', async (req, res) => {
         if (videoInfo && videoInfo.liveNow) {
             const liveStreamUrls = {};
             if (videoInfo.hlsUrl) {
-                // HLSマスタープレイリストをダウンロードして最高画質URLを抽出
-                const masterPlaylistResponse = await axios.get(videoInfo.hlsUrl, { responseType: 'text' });
-                const lines = masterPlaylistResponse.data.split('\n');
-                
-                let highestBandwidth = 0;
-                let highestQualityUrl = '';
-
-                for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].startsWith('#EXT-X-STREAM-INF:')) {
-                        const bandwidthMatch = lines[i].match(/BANDWIDTH=(\d+)/);
-                        if (bandwidthMatch && bandwidthMatch[1]) {
-                            const bandwidth = parseInt(bandwidthMatch[1], 10);
-                            if (bandwidth > highestBandwidth) {
-                                highestBandwidth = bandwidth;
-                                highestQualityUrl = lines[i + 1];
-                            }
-                        }
-                    }
-                }
-                
-                if (highestQualityUrl) {
-                    const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-hls?url=${encodeURIComponent(highestQualityUrl)}`;
-                    liveStreamUrls.hlsUrl = proxiedUrl;
-                }
+                const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-hls?url=${encodeURIComponent(videoInfo.hlsUrl)}`;
+                liveStreamUrls.hlsUrl = proxiedUrl;
             }
             if (videoInfo.dashUrl) {
                 const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-dash?url=${encodeURIComponent(videoInfo.dashUrl)}`;

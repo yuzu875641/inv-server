@@ -81,7 +81,7 @@ function parseHlsPlaylist(playlistContent, baseUrl, currentHost) {
                 }
             });
             const streamUrl = lines[i + 1];
-            if (streamUrl && streamUrl.trim() !== '') {
+            if (streamUrl && streamUrl.trim() !== '' && !streamUrl.startsWith('#')) {
                 const absoluteUrl = new URL(streamUrl, baseUrl).href;
                 streamInfo.url = `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(absoluteUrl)}`;
                 qualities.push(streamInfo);
@@ -91,7 +91,6 @@ function parseHlsPlaylist(playlistContent, baseUrl, currentHost) {
     return qualities;
 }
 
-// HLSマスタープレイリストをプロキシし、ストリームURLを書き換える
 app.get('/proxy-hls', async (req, res) => {
     const hlsUrl = req.query.url;
     if (!hlsUrl) {
@@ -123,7 +122,6 @@ app.get('/proxy-hls', async (req, res) => {
     }
 });
 
-// HLSセグメント（.tsファイル）をプロキシするルート
 app.get('/proxy-hls-segment', async (req, res) => {
     const segmentUrl = req.query.url;
     if (!segmentUrl) {
@@ -143,7 +141,6 @@ app.get('/proxy-hls-segment', async (req, res) => {
     }
 });
 
-// DASHマニフェストとセグメントをプロキシするルート
 app.get('/proxy-dash', async (req, res) => {
     const dashUrl = req.query.url;
     if (!dashUrl) {
@@ -183,11 +180,60 @@ app.get('/proxy-dash-segment', async (req, res) => {
         });
     } catch (err) {
         console.error("Failed to initiate proxy for DASH segment:", err.message);
-        res.status(500).send("Failed to initiate proxy for DASH segment.");
+        res.status(500).send("Failed to initiate proxy for segment.");
     }
 });
 
-// ライブ動画情報を取得するルート
+// 新しいエンドポイント: 最高画質のHLSストリームURLをJSONで返す
+app.get('/live/highest-quality-stream/:id', async (req, res) => {
+    const videoId = req.params.id;
+    if (!videoId) {
+        return res.status(400).json({ error: "Video ID is required." });
+    }
+
+    try {
+        const videoResponse = await getInvidiousDataWithInstance(`videos/${videoId}`);
+        if (!videoResponse || !videoResponse.data.liveNow) {
+            return res.status(500).json({ error: "No live stream URL available or could not find a working instance." });
+        }
+
+        const videoInfo = videoResponse.data;
+        const instanceUrl = videoResponse.instanceUrl;
+        const currentHost = `${req.protocol}://${req.get('host')}`;
+
+        if (videoInfo.hlsUrl) {
+            try {
+                const hlsUrl = new URL(videoInfo.hlsUrl, instanceUrl).href;
+                const hlsResponse = await axios.get(hlsUrl, { responseType: 'text' });
+                const hlsQualities = parseHlsPlaylist(hlsResponse.data, hlsUrl, currentHost);
+
+                if (hlsQualities.length > 0) {
+                    // 最高画質のストリームを帯域幅でソートして取得
+                    const highestQuality = hlsQualities.reduce((prev, current) => {
+                        return (parseInt(prev.bandwidth) > parseInt(current.bandwidth)) ? prev : current;
+                    });
+                    
+                    return res.json({
+                        success: true,
+                        streamUrl: highestQuality.url,
+                        quality: highestQuality
+                    });
+                } else {
+                    return res.status(500).json({ error: "Could not find any stream qualities in the HLS playlist." });
+                }
+            } catch (e) {
+                console.error("Failed to fetch/parse HLS playlist:", e.message);
+                return res.status(500).json({ error: `Failed to fetch/parse HLS playlist: ${e.message}` });
+            }
+        } else {
+            return res.status(500).json({ error: "No HLS URL found for this live stream." });
+        }
+    } catch (error) {
+        console.error("Error in highest-quality-stream endpoint:", error.message);
+        return res.status(500).json({ error: error.toString() });
+    }
+});
+
 app.get('/live/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {
@@ -207,7 +253,6 @@ app.get('/live/:id', async (req, res) => {
 
         if (videoInfo.hlsUrl) {
             try {
-                // HLS URLを相対パスから絶対パスに変換
                 const hlsUrl = new URL(videoInfo.hlsUrl, instanceUrl).href;
                 const hlsResponse = await axios.get(hlsUrl, { responseType: 'text' });
                 const hlsQualities = parseHlsPlaylist(hlsResponse.data, hlsUrl, currentHost);
@@ -255,7 +300,6 @@ app.get('/live/:id', async (req, res) => {
     }
 });
 
-// 通常の動画情報を取得するルート
 app.get('/video/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {

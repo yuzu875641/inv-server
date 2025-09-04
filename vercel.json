@@ -1,45 +1,51 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "yt.js",
+      "use": "@vercel/node"
+    }
+  ],
   "routes": [
     {
       "src": "/api/v1/(.*)",
-      "dest": "/api/v1"
+      "dest": "/yt.js"
     },
     {
       "src": "/live/highest-quality-stream/(.*)",
-      "dest": "/live/highest-quality-stream"
+      "dest": "/yt.js"
     },
     {
       "src": "/live/(.*)",
-      "dest": "/live"
+      "dest": "/yt.js"
     },
     {
       "src": "/video/(.*)",
-      "dest": "/video"
+      "dest": "/yt.js"
     },
     {
       "src": "/proxy-stream(.*)",
-      "dest": "/proxy-stream"
+      "dest": "/yt.js"
     },
     {
       "src": "/proxy-hls(.*)",
-      "dest": "/proxy-hls"
+      "dest": "/yt.js"
     },
     {
       "src": "/proxy-hls-segment(.*)",
-      "dest": "/proxy-hls-segment"
+      "dest": "/yt.js"
     },
     {
       "src": "/proxy-hls-segments(.*)",
-      "dest": "/proxy-hls-segments"
+      "dest": "/yt.js"
     },
     {
       "src": "/proxy-dash(.*)",
-      "dest": "/proxy-dash"
+      "dest": "/yt.js"
     },
     {
       "src": "/proxy-dash-segment(.*)",
-      "dest": "/proxy-dash-segment"
+      "dest": "/yt.js"
     }
   ]
 }

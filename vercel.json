@@ -3,35 +3,43 @@
   "routes": [
     {
       "src": "/api/v1/(.*)",
-      "dest": "/api/yt.js"
+      "dest": "/api/v1"
     },
     {
-      "src": "/video/(.*)",
-      "dest": "/api/yt.js"
+      "src": "/live/highest-quality-stream/(.*)",
+      "dest": "/live/highest-quality-stream"
     },
     {
       "src": "/live/(.*)",
-      "dest": "/api/yt.js"
+      "dest": "/live"
     },
     {
-      "src": "/playlist/(.*)",
-      "dest": "/api/yt.js"
+      "src": "/video/(.*)",
+      "dest": "/video"
     },
     {
-      "src": "/proxy-hls",
-      "dest": "/api/yt.js"
+      "src": "/proxy-stream(.*)",
+      "dest": "/proxy-stream"
     },
     {
-      "src": "/proxy-hls-segment",
-      "dest": "/api/yt.js"
+      "src": "/proxy-hls(.*)",
+      "dest": "/proxy-hls"
     },
     {
-      "src": "/proxy-dash",
-      "dest": "/api/yt.js"
+      "src": "/proxy-hls-segment(.*)",
+      "dest": "/proxy-hls-segment"
     },
     {
-      "src": "/proxy-stream",
-      "dest": "/api/yt.js"
+      "src": "/proxy-hls-segments(.*)",
+      "dest": "/proxy-hls-segments"
+    },
+    {
+      "src": "/proxy-dash(.*)",
+      "dest": "/proxy-dash"
+    },
+    {
+      "src": "/proxy-dash-segment(.*)",
+      "dest": "/proxy-dash-segment"
     }
   ]
 }

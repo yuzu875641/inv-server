@@ -83,7 +83,7 @@ function parseHlsPlaylist(playlistContent, baseUrl, currentHost) {
             const streamUrl = lines[i + 1];
             if (streamUrl && streamUrl.trim() !== '' && !streamUrl.startsWith('#')) {
                 const absoluteUrl = new URL(streamUrl, baseUrl).href;
-                streamInfo.url = `${currentHost}/proxy-hls?url=${encodeURIComponent(absoluteUrl)}`; // ここをm3u8に変換
+                streamInfo.url = `${currentHost}/proxy-hls?url=${encodeURIComponent(absoluteUrl)}`;
                 qualities.push(streamInfo);
             }
         }
@@ -106,10 +106,10 @@ app.get('/proxy-hls', async (req, res) => {
         
         const proxiedContent = content.split('\n').map(line => {
             if (line.startsWith('http://') || line.startsWith('https://')) {
-                return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(line)}`;
+                return `${currentHost}/proxy-stream?url=${encodeURIComponent(line)}`;
             } else if (line.endsWith('.m3u8') || line.endsWith('.ts')) {
                 const absoluteUrl = new URL(line, baseUrl).href;
-                return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(absoluteUrl)}`;
+                return `${currentHost}/proxy-stream?url=${encodeURIComponent(absoluteUrl)}`;
             }
             return line;
         }).join('\n');
@@ -242,9 +242,10 @@ app.get('/live/highest-quality-stream/:id', async (req, res) => {
                         return (parseInt(prev.bandwidth) > parseInt(current.bandwidth)) ? prev : current;
                     });
                     
+                    // 最高画質のm3u8プレイリストURLをJSONで返す
                     return res.json({
                         success: true,
-                        streamUrl: highestQuality.url,
+                        streamUrl: highestQuality.url, // これがproxy-hls?url=...の形式になる
                         quality: highestQuality
                     });
                 } else {

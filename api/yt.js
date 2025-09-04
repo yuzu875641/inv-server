@@ -122,7 +122,25 @@ app.get('/proxy-hls', async (req, res) => {
     }
 });
 
-// HLSセグメントリストをプロキシする
+app.get('/proxy-hls-segment', async (req, res) => {
+    const segmentUrl = req.query.url;
+    if (!segmentUrl) {
+        return res.status(400).send("URL parameter is required.");
+    }
+
+    try {
+        const stream = miniget(segmentUrl);
+        stream.pipe(res);
+        stream.on('error', (err) => {
+            console.error("Failed to proxy the HLS segment:", err.message);
+            res.status(500).send("Failed to proxy the segment.");
+        });
+    } catch (err) {
+        console.error("Failed to initiate proxy for segment:", err.message);
+        res.status(500).send("Failed to initiate proxy for segment.");
+    }
+});
+
 app.get('/proxy-hls-segments', async (req, res) => {
     const segmentsUrl = req.query.url;
     if (!segmentsUrl) {
@@ -134,38 +152,6 @@ app.get('/proxy-hls-segments', async (req, res) => {
         const content = response.data;
         const currentHost = `${req.protocol}://${req.get('host')}`;
         
-        // 元のプレイリストのベースURLを特定
-        const baseUrl = new URL(segmentsUrl).origin;
-
-        // すべてのセグメントURLをプロキシURLに書き換える
-        const proxiedContent = content.split('\n').map(line => {
-            if (line.endsWith('.ts')) {
-                const absoluteUrl = new URL(line, baseUrl).href;
-                return `${currentHost}/proxy-stream?url=${encodeURIComponent(absoluteUrl)}`;
-            }
-            return line;
-        }).join('\n');
-
-        // ★この行を追記★：HLSプレイヤーが認識できるようにContent-Typeを設定
-        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-        res.send(proxiedContent);
-
-    } catch (err) {
-        console.error("Failed to proxy the HLS segments list:", err.message);
-        res.status(500).send("Failed to proxy the HLS segments list.");
-    }
-});
-// 新しいエンドポイント: HLSセグメントリストをプロキシする
-app.get('/proxy-hls-segments', async (req, res) => {
-    const segmentsUrl = req.query.url;
-    if (!segmentsUrl) {
-        return res.status(400).send("URL parameter is required.");
-    }
-
-    try {
-        const response = await axios.get(segmentsUrl, { responseType: 'text' });
-        const content = response.data;
-        const currentHost = `${req.protocol}://${req.get('host')}`;
         const baseUrl = new URL(segmentsUrl).origin;
 
         const proxiedContent = content.split('\n').map(line => {
@@ -178,6 +164,7 @@ app.get('/proxy-hls-segments', async (req, res) => {
 
         res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
         res.send(proxiedContent);
+
     } catch (err) {
         console.error("Failed to proxy the HLS segments list:", err.message);
         res.status(500).send("Failed to proxy the HLS segments list.");
@@ -224,7 +211,7 @@ app.get('/proxy-dash-segment', async (req, res) => {
         });
     } catch (err) {
         console.error("Failed to initiate proxy for DASH segment:", err.message);
-        res.status(500).send("Failed to initiate proxy for segment.");
+        res.status(500).send("Failed to initiate proxy for DASH segment.");
     }
 });
 

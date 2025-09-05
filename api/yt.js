@@ -4,50 +4,20 @@ const app = express();
 const miniget = require('miniget');
 
 const invidiousInstances = [
-    'https://nyc1.iv.ggtyler.dev',
-    'https://cal1.iv.ggtyler.dev',
-    'https://invidious.nikkosphere.com',
-    'https://lekker.gay',
-    'https://invidious.f5.si',
-    'https://invidious.lunivers.trade',
-    'https://invid-api.poketube.fun',
-    'https://pol1.iv.ggtyler.dev',
-    'https://eu-proxy.poketube.fun',
-    'https://iv.melmac.space',
-    'https://invidious.reallyaweso.me',
+    'https://invidious.perennialte.ch',
+    'https://inv.nadeko.net',
+    'https://inv.tux.pizza',
+    'https://vid.puffyan.us',
+    'https://invidious.esmailelbob.xyz',
+    'https://invidious.projectsegfau.lt',
+    'https://invidious.adminforge.de',
+    'https://invidious.einfachzocken.eu',
     'https://invidious.dhusch.de',
-    'https://usa-proxy2.poketube.fun',
-    'https://id.420129.xyz',
-    'https://invidious.darkness.service',
+    'https://invidious.lunivers.trade',
     'https://iv.datura.network',
     'https://invidious.jing.rocks',
     'https://invidious.private.coffee',
-    'https://youtube.mosesmang.com',
-    'https://iv.duti.dev',
-    'https://invidious.projectsegfau.lt',
-    'https://invidious.perennialte.ch',
-    'https://invidious.einfachzocken.eu',
-    'https://invidious.adminforge.de',
-    'https://inv.nadeko.net',
-    'https://invidious.esmailelbob.xyz',
-    'https://invidious.0011.lt',
-    'https://invidious.ducks.party',
-    'https://super8.absturztau.be',
-    'https://34.97.38.181',
-    'https://youtube.alt.tyil.nl',
-    'https://rust.oskamp.nl',
-    'https://inv.tux.pizza',
-    'https://vid.puffyan.us',
-    'https://invidious.nietzospannend.nl',
-    'https://iv.ggtyler.dev',
-    'https://siawaseok-wakame-server2.glitch.me',
     'https://invidious.darkness.services',
-    'https://inv.vern.cc',
-    'https://invidious.vern.cc',
-    'https://yt.vern.cc',
-    'https://invidious.materialio.us',
-    'https://invidious.varis.social',
-    'https://invidious.0011.lt'
 ];
 
 async function getInvidiousData(endpoint) {
@@ -65,27 +35,34 @@ async function getInvidiousData(endpoint) {
     return null;
 }
 
-// 新しいプロキシルート: 再帰的にHLSプレイリストを書き換える
+// ライブストリームのマスタープレイリストとセグメントを再帰的にプロキシする
 app.get('/proxy-hls', async (req, res) => {
     const hlsUrl = req.query.url;
     if (!hlsUrl) {
         return res.status(400).send("URL parameter is required.");
     }
+    
+    let fullUrl = hlsUrl;
+    // URLが相対パスの場合、自動的に補完
+    if (!hlsUrl.startsWith('http')) {
+        fullUrl = `https://www.youtube.com${hlsUrl}`;
+    }
 
     try {
-        const response = await axios.get(hlsUrl, { responseType: 'text' });
+        const response = await axios.get(fullUrl, { responseType: 'text' });
         let content = response.data;
 
-        const baseUrl = new URL(hlsUrl).origin;
+        const urlObj = new URL(fullUrl);
+        const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
         const currentHost = `${req.protocol}://${req.get('host')}`;
 
         const proxiedContent = content.split('\n').map(line => {
-            if (line.startsWith('http://') || line.startsWith('https://')) {
+            if (line.startsWith('http')) {
                 // 絶対URLをプロキシURLに書き換え
                 return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(line)}`;
             } else if (line.endsWith('.m3u8') || line.endsWith('.ts')) {
                 // 相対URLを絶対URLに変換してからプロキシURLに書き換え
-                const absoluteUrl = `${baseUrl}/${line}`;
+                const absoluteUrl = `${baseUrl}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/'))}/${line}`;
                 return `${currentHost}/proxy-hls-segment?url=${encodeURIComponent(absoluteUrl)}`;
             }
             return line;
@@ -116,6 +93,42 @@ app.get('/proxy-hls-segment', async (req, res) => {
     }
 });
 
+// DASHストリームをプロキシするルート
+app.get('/proxy-dash', async (req, res) => {
+    const dashUrl = req.query.url;
+    if (!dashUrl) {
+        return res.status(400).send("URL parameter is required.");
+    }
+
+    try {
+        const stream = miniget(dashUrl);
+        stream.pipe(res);
+        stream.on('error', (err) => {
+            res.status(500).send("Failed to proxy the DASH stream.");
+        });
+    } catch (err) {
+        res.status(500).send("Failed to initiate proxy for DASH.");
+    }
+});
+
+// 一般的な動画ストリームをプロキシするルート
+app.get('/proxy-stream', async (req, res) => {
+    const streamUrl = req.query.url;
+    if (!streamUrl) {
+        return res.status(400).send("URL parameter is required.");
+    }
+    
+    try {
+        const stream = miniget(streamUrl);
+        stream.pipe(res);
+        stream.on('error', (err) => {
+            res.status(500).send("Failed to proxy the stream.");
+        });
+    } catch (err) {
+        res.status(500).send("Failed to initiate proxy for stream.");
+    }
+});
+
 app.get('/live/:id', async (req, res) => {
     const videoId = req.params.id;
     if (!videoId) {
@@ -126,11 +139,37 @@ app.get('/live/:id', async (req, res) => {
         const videoInfo = await getInvidiousData(`videos/${videoId}`);
         if (videoInfo && videoInfo.liveNow) {
             const liveStreamUrls = {};
-            if (videoInfo.hlsUrl) {
-                const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-hls?url=${encodeURIComponent(videoInfo.hlsUrl)}`;
-                liveStreamUrls.hlsUrl = proxiedUrl;
+            if (videoInfo.hlsUrl && typeof videoInfo.hlsUrl === 'string') {
+                try {
+                    // HLSマスタープレイリストをダウンロードして最高画質URLを抽出
+                    const masterPlaylistResponse = await axios.get(videoInfo.hlsUrl, { timeout: 5000, responseType: 'text' });
+                    const lines = masterPlaylistResponse.data.split('\n');
+                    
+                    let highestBandwidth = 0;
+                    let highestQualityUrl = '';
+
+                    for (let i = 0; i < lines.length; i++) {
+                        if (lines[i].startsWith('#EXT-X-STREAM-INF:')) {
+                            const bandwidthMatch = lines[i].match(/BANDWIDTH=(\d+)/);
+                            if (bandwidthMatch && bandwidthMatch[1]) {
+                                const bandwidth = parseInt(bandwidthMatch[1], 10);
+                                if (bandwidth > highestBandwidth) {
+                                    highestBandwidth = bandwidth;
+                                    highestQualityUrl = lines[i + 1];
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (highestQualityUrl) {
+                        const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-hls?url=${encodeURIComponent(highestQualityUrl)}`;
+                        liveStreamUrls.hlsUrl = proxiedUrl;
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch HLS master playlist:", error.toString());
+                }
             }
-            if (videoInfo.dashUrl) {
+            if (videoInfo.dashUrl && typeof videoInfo.dashUrl === 'string') {
                 const proxiedUrl = `${req.protocol}://${req.get('host')}/proxy-dash?url=${encodeURIComponent(videoInfo.dashUrl)}`;
                 liveStreamUrls.dashUrl = proxiedUrl;
             }
